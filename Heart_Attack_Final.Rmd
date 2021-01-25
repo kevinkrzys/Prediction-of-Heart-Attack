@@ -1,0 +1,471 @@
+---
+title: "Heart Disease - Identification of Predictors and Prevention"
+author: "Aditi Rajesh Deshpande, Kevin Fernandes, Daksh Alpesh Shah, Meng Hsuan Tsai"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+    latex_engine: xelatex
+  html_document:
+    toc: yes
+    toc_depth: '3'
+    df_print: paged
+  word_document:
+    toc: yes
+    toc_depth: '3'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.width = 10, fig.align = "center")
+```
+
+```{r pacman, warning=FALSE, message=FALSE, echo = FALSE}
+if(!require("pacman")) install.packages("pacman")
+pacman::p_load(reshape, data.table, ggplot2, leaps, forecast, caret, rpart, rpart.plot, MASS, gbm, pROC)
+```
+\newpage
+
+## 1. **Objective**
+
+Heart Diseases are one of the major problems prevalent today due to health and lifestyle choices. Our main objective in the project is to predict the chances of Heart Disease and the major factors contributing to it. The data set we found helps us to evaluate deeper relationships between potential factors and perhaps reshape health care products.
+
+
+## 2. **Executive Summary**
+
+We used R, a statistical computing and graphics tool for building our  models. At first, we explored the dataset to understand our dataset and develop a general idea for further analysis. We found some correlations among variables.  Then, we used this dataset to build classification models, including the Decision Tree model and Logistic Regression model, to predict whether someone, with certain diagnostic measurements, has chances of getting Heart Disease  or not. For the Decision Tree model, we sampled 80% of records as training data sets and 20% of records as validation data sets, plotted the Decision Tree, and evaluated it using confusion matrix and ROC. For the Logistic Regression model, also we  sampled training data sets and validation data sets, built the Logistic Regression model, computed the odds ratios, and evaluated the Logistic Regression model using the confusion matrix and ROC. We evaluated all models and selected the best possible model.
+
+
+## 3. **Introduction**
+
+The motivation of this work comes from the fact that [1] although the death rates from Heart Diseases are declining; Heart Disease is still the major cause of death in the USA. An estimated 92.1 million US adults have at least one kind of Heart Disease and by 2030, around 44% of the US adult population is expected to have some form of Heart Disease.
+
+Heart Disease comes under many categories such as coronary artery disease, heart rhythm problems, chest pain (angina), or stroke.  In [2] using data from the Global Burden of Disease Study, approximately 90% of the stroke risk could be attributed to modifiable risk factors. In our study, we tried identifying those risk factors that contribute the most to Heart Diseases. The estimated direct costs of Heart Diseases and stroke increased from $103.5 billion in 1996 to 1997 to $213.8 billion from 2014 to 2015.
+
+In our study we will consider the following business questions:
+
+* Which factors contribute the most to Heart Diseases? 
+
+* Age - Are elderly people more prone to Heart Disease compared to younger people? 
+
+* Cholesterol - Does high cholesterol level lead to Heart Disease? 
+
+\newpage
+
+## 4. **Research**
+
+[3] As there is a significant health impact of Heart Diseases, the awareness of the factors leading to Heart Disease and its symptoms should be common knowledge among everyone.  But, in this study, it was identified that there was suboptimal knowledge about it. We conducted a survey using Google Forms to understand public awareness and to identify which variable they think could be the biggest contributor to having Heart Diseases.
+
+![](heart1.png)
+
+![](heart2.png)
+
+We can see here, from the 84 respondents, 61 or 72.6% think Cholesterol and 41 or 48.8% think Age was the biggest contributor to Heart Disease
+
+A Machine Learning model was to predict the risk of a Heart Disease in the subjects and these predictions were compared to the actual experiences of the subjects over fifteen years [4]. The predicted machine learning scores aligned accurately with the actual distribution of observed events. Experimental results show ∼ 100% accurate prediction for the system using Neural Networks [5].
+
+\newpage
+
+## 5. **Data Description**
+
+Our primary dataset for this analysis is the “Heart Disease Data Set”. The dataset is obtained from the University of California, Irvine’s Machine Learning Repository (https://archive.ics.uci.edu/ml/datasets/Heart+Disease). No additional sources were used as the primary dataset was found to be sufficient enough. The dataset consists of 13 predictor variables and 1 target variable, ‘target’. Here is the description of the variables within the dataset:
+
+Independent variabes | Type           | Description
+-------------------  | -------------  |---------------
+Age                  | Continuous     | Age in years
+Sex                  | Discrete       | Male = 1, Female = 0
+CP                   | Discrete       | Chest pain type, Typical angina = 0, Atypical angina = 1, Non angina pain = 2, Asymptomatic = 3
+Trestbps             | Continuous     | Resting blood pressure (in mmHg)
+Chol                 | Continuous     | Serum cholesterol in mg/dl
+Fbs                  | Discrete       | Fasting blood sugar > 120 mg/dl: True = 1, False = 0
+Restecg              | Discrete       | Resting electrocardiographic results; Normal = 0, Having ST-T wave abnormality = 1, Showing probable or define left = 2
+Thalach              | Continuous     | Maximum heart rate achieved
+Exang                | Discrete       | Exercise induced angina, Yes = 1, No = 0
+Oldpeak              | Continuous     | ST depression induced by exercise relative to rest
+Slope                | Discrete       | Slope of the peak exercise ST segment; upsloping = 0; Flat = 1, Down sloping = 2
+Ca                   | Discrete       | Number of major colored vessels from fluoroscopy (0-3)
+Thal                 | Discrete       | A blood disorder called thalassemia; Normal = 0, Fixed defect = 1, Reversible defect = 2
+
+
+
+Dependent variabes   | Type           | Description
+-------------------  | -------------  |---------------
+Target               | Discrete       | 0 = Heart Disease Absent, 1 = Heart Disease Present
+
+## 6. **Preprocessing Data**
+
+* First we read the data file from the University of California, Irvine Machine Learning Repository into R. After reading the file into R, we converted the values into numeric
+* We found a total of 6 null values in the dataset.The thal column contained 2 and the ca column contained 4 of the null values. We have removed these null values in order to make the dataset accurate
+
+```{r readData,warning=FALSE, message=FALSE, echo = FALSE}
+
+heart_data.uci <- read.csv("https://archive.ics.uci.edu/ml/machine-learning-databases/heart-disease/processed.cleveland.data")
+names(heart_data.uci) <- c( "age", "sex", "cp", "trestbps", "chol","fbs", "restecg", "thalach","exang", "oldpeak","slope", "ca", "thal", "target")
+heart_data.uci$thal <- as.numeric(heart_data.uci$thal)
+heart_data.uci$ca <- as.numeric(heart_data.uci$ca)
+heart_data.uci <- na.omit(heart_data.uci)
+heart_data.dt <- data.table(heart_data.uci)
+
+heart_data.dt <- heart_data.dt[, thal := as.numeric(thal)][thal == 3, thal := 0]
+heart_data.dt <- heart_data.dt[, thal := as.numeric(thal)][thal == 6, thal := 1]
+heart_data.dt <- heart_data.dt[, thal := as.numeric(thal)][thal == 7, thal := 2]
+
+heart_data.dt <- heart_data.dt[, target := as.numeric(target)][target == 0, target := 0]
+heart_data.dt <- heart_data.dt[, target := as.numeric(target)][target > 0, target := 1]
+
+```
+
+* The following shows the data and the summary statistics:
+
+```{r summary statistics, warning = FALSE, message = FALSE}
+
+head(heart_data.dt)
+summary(heart_data.dt)
+
+
+```
+\newpage
+
+## 7. **Exploratory Data Analysis(EDA)**
+
+* **Graphical Analysis**
+
+1. **Histogram for age:**
+
+The minimum age is 29 and maximum age is 77. Average age of Population is 54.37. Maximum number of population lies between the age group 55 and 60 years.
+
+```{r histogram for age,warning=FALSE, message=FALSE, echo = FALSE}
+
+ggplot(heart_data.dt, aes(x=age, fill=factor(sex))) +
+  geom_histogram(color = "black") +
+  scale_fill_manual(values = c("lightpink", "dodgerblue"), labels = c("Female", "Male")) + ggtitle("Distribution by Age") + xlab("Age") + ylab("Count") + theme(aspect.ratio = 0.75)
+
+```
+
+2. **Histogram for Cholesterol:**
+
+The minimum cholesterol among patients is 126, the maximum is 564 and the average cholesterol is 247.3. We can clearly see in Histogram that maximum population have cholesterol between 200 and 250 unit.
+
+```{r histogram for cholesterol, warning = FALSE, message = FALSE, echo = FALSE}
+
+ggplot(heart_data.dt, aes(x=chol, fill=factor(sex))) +
+  geom_histogram(color = "black") +
+  scale_fill_manual(values = c("lightpink", "dodgerblue"), labels = c("Female", "Male"), labs(fill = "Sex")) + xlab("Cholesterol") + ylab("Count") + ggtitle("Distribution by Cholesterol") + theme(aspect.ratio = 0.75)
+
+```
+
+\newpage
+
+* **Finding outliers and understanding them**
+
+1. trestbps
+
+Resting Blood Pressure (in mm Hg on admission to the hospital)
+
+```{r outliers1, warning= FALSE, message = FALSE, echo = FALSE}
+
+ggplot(heart_data.dt) +
+  geom_boxplot(aes(trestbps), 
+               fill = "gold1", outlier.color = "firebrick2") + 
+  coord_flip() + 
+  ggtitle("Where are the Outliers?") + theme(aspect.ratio = 0.75)
+
+trestbps_3qt <- quantile(heart_data.dt$trestbps)[4]
+trestbps_max <- trestbps_3qt + (1.5 * IQR(heart_data.dt$trestbps))
+trestbps_outlier <- heart_data.dt[trestbps > trestbps_max, , ]
+
+```
+
+* We do not remove outliers in the trestbps column because values above 180 indicate risk of critical medical conditions
+
+2. chol
+
+Serum Cholestoral in mg/dl
+
+```{r outliers2,warning=FALSE, message=FALSE, echo = FALSE}
+
+ggplot(heart_data.dt) +
+  geom_boxplot(aes(chol), 
+               fill = "gold1", outlier.color = "firebrick2") + 
+  coord_flip() + 
+  ggtitle("Where are the Outliers?") + theme(aspect.ratio = 0.75)
+
+chol_3qt <- quantile(heart_data.dt$chol)[4]
+chol_max <- chol_3qt + (1.5 * IQR(heart_data.dt$chol))
+chol_outlier <- heart_data.dt[chol > chol_max, , ]
+
+```
+
+* We do not remove outliers in the chol column because patients can have unusally high values due to inherited conditions
+
+3. thalach
+
+Maximum Heart Rate Achieved
+
+```{r outliers3,warning=FALSE, message=FALSE, echo = FALSE}
+
+ggplot(heart_data.dt) +
+  geom_boxplot(aes(thalach), 
+               fill = "gold1", outlier.color = "firebrick2") + 
+  coord_flip() + 
+  ggtitle("Where are the Outliers?") + theme(aspect.ratio = 0.75)
+
+thalach_1qt <- quantile(heart_data.dt$thalach)[2]
+thalach_min <- thalach_1qt - (1.5 * IQR(heart_data.dt$thalach))
+thalach_outlier <- heart_data.dt[thalach < thalach_min, , ]
+
+```
+
+* We do not remove outliers in the thalach column because it indicates a healthy individual
+
+4. oldpeak
+
+ST Depression Induced by Exercise Relative to Rest
+
+```{r outliers4,warning=FALSE, message=FALSE, echo = FALSE}
+
+ggplot(heart_data.dt) +
+  geom_boxplot(aes(oldpeak), 
+               fill = "gold1", outlier.color = "firebrick2") + 
+  coord_flip() + 
+  ggtitle("Where are the Outliers?") + theme(aspect.ratio = 0.75)
+
+oldpeak_3qt <- quantile(heart_data.dt$oldpeak)[4]
+oldpeak_max <- oldpeak_3qt + (1.5 * IQR(heart_data.dt$oldpeak))
+oldpeak_outlier <- heart_data.dt[oldpeak > oldpeak_max, , ]
+
+```
+
+* We do not remove the outliers in the oldpeak column because high values of oldpeak(greater than 4) could indicate the presence of Heart Disease in patients.
+
+\newpage
+
+* **Correlation heatmap between variables:**
+
+```{r analyzing relationships, warning = FALSE, message = FALSE, echo = FALSE}
+
+cor.mat <- round(cor(heart_data.dt[,-c("target")]), 2)
+melted.cor.mat <- melt(cor.mat, varnames = c("Var1", "Var2"))
+
+ggplot(melted.cor.mat, aes(x = Var1, y = Var2, fill = value)) +
+  scale_fill_gradient(low="wheat", high="orangered") +
+  geom_tile() + 
+  geom_text(aes(x = Var1, y = Var2, label = value)) +
+  ggtitle("Which Variables Are Highly Correlated?") + xlab("Variable 1") + ylab("Variable 2")
+
+```
+
+We used a correlation heatmap to plot out the strongest positive and negative correlations. As indicated, “slope” and “oldpeak” have the strongest correlation, with a positive 0.58. “thalach” and “age” have the lowest correlation, with a negative 0.4.
+
+* **Analyzing relationships between cholesterol and age:**
+
+```{r age vs cholesterol, warning = FALSE, message = FALSE, echo = FALSE}
+
+ggplot(heart_data.dt) +
+  geom_point(aes(x = age, y = chol, color = factor(sex), shape = factor(target))) +
+  scale_shape_discrete(labels = c("Absent", "Present"), labs(fill = "Heart Disease")) +
+  scale_color_manual(values = c("lightpink", "dodgerblue"), labels = c("Female", "Male"), labs(fill = "Sex")) +
+  ggtitle("Presence of Heart Disease") +
+  xlab("Age") + ylab("Cholesterol")
+
+```
+
+As we can see in the scatterplot, age and cholesterol do not appear to have a significant correlation with Heart Disease. In the top right corner, we can see an elderly female with high cholesterol, but who does not have Heart Disease. On the other hand, on the bottom left, we can see a young male with low cholesterol, who has Heart Disease. Hence we cannot derive any relationship between these variables and Heart Disease.
+
+\newpage
+
+## 8. **Data Modelling**
+
+1. Splitting the data: 
+
+First, we divided the dataset into two parts: training dataset and validation dataset. We allocated 80% of the dataset for the training dataset and the remaining 20% of the dataset for the validation dataset.
+
+```{r split,warning=FALSE, message=FALSE, echo = FALSE}
+
+set.seed(42)
+
+train.index <- sample(dim(heart_data.dt)[1], 0.8 * dim(heart_data.dt)[1])
+train.df <- heart_data.dt[train.index, ]
+valid.df <- heart_data.dt[-train.index, ]
+
+
+```
+
+2. Logistic Regression: 
+
+It extends the idea of Linear Regression to the situation where the outcome variable is categorical. It is the appropriate regression analysis to conduct when the dependent variable is dichotomous (binary). Sex, cp, trestbps, ca, thalach , exang, slope are significant variables.
+
+The null deviance shows how well the response is predicted by the model with nothing but an intercept. The residual deviance shows how well the response is predicted by the model when the predictors are included. Residual deviance is the measure of error.Smaller the residual deviance , better the predictive power of the model.
+
+In the output we get  the residual deviance smaller than the Null deviance, so our Logistic Model has some predictive power. The variables will have some explanatory power.
+
+In logistic regression the odds ratio represents the constant effect of a predictor X, on the likelihood that one outcome will occur.
+
+When a binary outcome variable is modeled using logistic regression, it is assumed that the logit transformation of the outcome variable has a linear relationship with the predictor variables.  This makes the interpretation of the regression coefficients tricky. So we make use of Odd’s Ratio. 
+
+```{r logreg,warning=FALSE, message=FALSE, echo = FALSE}
+
+heart_data.dt.reg <- glm(target ~ ., data = train.df, family = "binomial")
+
+options(scipen = 999)
+
+print("Summary of  the Logistic Regression Model")
+summary(heart_data.dt.reg)
+
+print("Exponents of the coefficients")
+exp(coef(heart_data.dt.reg))
+
+heart_data.dt.model <- stepAIC(heart_data.dt.reg, trace = 0)
+
+print("Summary of  the Logistic Regression Model with stepAIC")
+summary(heart_data.dt.model)
+
+```
+
+Odds ratio:
+
+From the output , we can conclude that ca is the most significant variable among all the other variables. The way we interpret these coeffcients is as follows. Considering thalach (maximum heart rate achieved)as an example, if it goes up by one unit, the odds of having Heart Disease  goes down by 2.8%.
+
+AIC:
+
+Using AIC , we select the best possible model available to us with all the significant variables . Even in the AIC model, we get residual deviance smaller than the null deviance, so our model has some predictive power.
+
+3. Decision Tree:
+
+Decision Tree is the most powerful and popular tool for classification and prediction. A Decision Tree is a flowchart like tree structure, where each internal node denotes a test on an attribute, each branch represents an outcome of the test, and each leaf node holds a class label.
+
+From the Decision Tree , we get the following Rule with the most percentage cover of cases.
+
+When thal < 1  & ca  < 1 THEN CLASS = 0 and this rule covers 42% of cases.
+
+```{r decisiontree,warning=FALSE, message=FALSE, echo = FALSE}
+
+heart_data.dt.tree <- rpart(target ~ ., data = train.df, method = "class")
+rpart.plot(heart_data.dt.tree)
+rpart.rules(heart_data.dt.tree,cover=TRUE) 
+
+#summary(heart_data.dt.tree)
+
+# Adding boosting to decision tree
+shrink_param <- seq(0, 0.002, 0.00001)
+
+train.mse.ada <- array(NA,length(shrink_param))
+valid.mse.ada <- array(NA,length(shrink_param))
+
+train.mse.ber <- array(NA,length(shrink_param))
+valid.mse.ber <- array(NA,length(shrink_param))
+
+for (i in 1:length(shrink_param)) {
+heart_data.dt.tree_boost.ada <- gbm(target ~ ., data = train.df, distribution = 'adaboost', n.trees = 1000, shrinkage = shrink_param[i], verbose = F)
+
+train.mse.ada[i] <- mean((predict(heart_data.dt.tree_boost.ada, train.df, n.trees = 1000) - train.df$target)^2)
+valid.mse.ada[i] <- mean((predict(heart_data.dt.tree_boost.ada, valid.df, n.trees = 1000) - valid.df$target)^2)
+
+heart_data.dt.tree_boost.ber <- gbm(target ~ ., data = train.df, distribution = 'bernoulli', n.trees = 1000, shrinkage = shrink_param[i], verbose = F)
+
+train.mse.ber[i] <- mean((predict(heart_data.dt.tree_boost.ber, train.df, n.trees = 1000) - train.df$target)^2)
+valid.mse.ber[i] <- mean((predict(heart_data.dt.tree_boost.ber, valid.df, n.trees = 1000) - valid.df$target)^2)
+
+}
+
+print("Mean Valid MSE for Adaboost")
+mean(valid.mse.ada) #Add explanation
+print("Min Valid MSE for Adaboost")
+min(valid.mse.ada)  #Add explanation
+
+plot(shrink_param, valid.mse.ada, col="red", xlab="Shrinkage", ylab="Valid MSE")
+
+print("Mean Valid MSE for Bernoulli")
+mean(valid.mse.ber)
+print("Min Valid MSE for Bernoulli")
+min(valid.mse.ber)
+
+plot(shrink_param, valid.mse.ber, col="red", xlab="Shrinkage", ylab="Valid MSE")
+
+heart_data.dt.tree_best <- gbm(target ~ ., data = train.df, distribution = "adaboost", shrinkage = shrink_param[which.min(valid.mse.ada)])
+
+summary(heart_data.dt.tree_best)
+
+```
+
+## 9. **Performance evaluation**
+
+The performance of a regression model can be understood by knowing the error rate of the predictions made by the model. You can also measure the performance by knowing how well your regression line fit the dataset and knowing the accuracy of such models.
+
+Confusion Matrix:
+
+Confusion matrix is a measurement that used to represent the performance of a classification model by recording the sources of errors: false positives and false negatives. We use confusion matrix to depict the accuracy of the training data.
+
+```{r performance,warning=FALSE, message=FALSE, echo = FALSE}
+
+print("Confusion Matrix for Logistic Regression")
+heart_data.dt.reg.valid_pred <- predict.glm(heart_data.dt.reg, valid.df, type = "response")
+confusionMatrix(as.factor(ifelse(heart_data.dt.reg.valid_pred > 0.5, 1, 0)), as.factor(valid.df$target), positive = "1")
+
+print("Confusion Matrix for Logistic Regression with StepAIC")
+heart_data.dt.model.valid_pred <- predict.glm(heart_data.dt.model, valid.df, type = "response")
+confusionMatrix(as.factor(ifelse(heart_data.dt.model.valid_pred > 0.5, 1, 0)), as.factor(valid.df$target), positive = "1")
+
+print("Confusion Matrix for Decision Tree")
+heart_data.dt.tree.valid_pred <- predict(heart_data.dt.tree, valid.df, type = "class")
+confusionMatrix(heart_data.dt.tree.valid_pred, as.factor(valid.df$target), positive = "1")
+
+print("Confusion Matrix for Decision Tree with Adaboost")
+heart_data.dt.tree_best.pred <- predict(heart_data.dt.tree_best, valid.df, type = "response")
+confusionMatrix(as.factor(ifelse(heart_data.dt.tree_best.pred > 0.5, 1, 0)), as.factor(valid.df$target), positive = "1")
+
+```
+
+
+## 10. **ROC curve**
+
+For the classification problem to check or visualize the performance of the classification problem, we use AUC (Area Under the Curve) ROC (Receiver Operating Characteristics) curve. It is one of the most important evaluation metrics for checking any classification model’s performance. It is also written as AUROC (Area Under the Receiver Operating Characteristics). ROC is a probability curve and AUC represent degree or measure of separability. It tells how much model is capable of distinguishing between classes. Higher the AUC, better the model is at predicting 0s as 0s and 1s as 1s. By analogy, Higher the AUC, better is the model in distinguishing. An excellent model has AUC near to the 1 which means it has good measure of separability. A poor model has AUC near to the 0 which means it has worst measure of separability. In fact it means it is reciprocating the result. It is predicting 0s as 1s and 1s as 0s. And when AUC is 0.5, it means model has no class separation capacity whatsoever.
+
+```{r ROC logistic,warning=FALSE, message=FALSE, echo = FALSE}
+
+print("ROC for Logistic Regression")
+heart_data.dt.reg.train_pred <- predict.glm(heart_data.dt.reg, train.df, type = "response")
+rt <- roc(train.df$target, heart_data.dt.reg.train_pred)
+plot.roc(rt)
+print("Area Under the Curve for Decision Tree")
+auc(rt)
+
+```
+
+```{r ROC decision tree,warning=FALSE, message=FALSE, echo = FALSE}
+
+print("ROC for Descision Tree")
+rt2 <- roc(valid.df$target, as.numeric(heart_data.dt.tree.valid_pred))
+plot.roc(rt2)
+print("Area Under the Curve for Decision Tree ")
+auc(rt2)
+
+```
+As we see here, the AUC for the training data is 0.9265 and the AUC for the validation dataset is 0.8661
+
+\newpage
+
+## 11. **Flow Diagram**
+
+![](fd.png)
+\newpage
+
+## 12. **Conclusion:**
+
+We have built and compared the Logistic Regression model and the Decision Tree model and have captured the results and the performance metrics for the same. With the Logistic Regression model we achieved an accuracy of 83.33% and for the Decision Tree we achieved an accuracy of 86.67%. Therefore, the Decision Tree model is better for our project analysis. They also are easy to implement and interpret, and they display higher accuracy than Logistic Regression model here. The Decision Tree model we built helped us identify thal, ca, thalach and cp as the most important predictors of Heart Disease. This proves that age and chol are not major contributors to Heart Disease.
+
+Using this model, one can employ it to deduce if a particular patient, with a certain medical profile, is likely to have Heart Disease  or not. This model can be used to serve bigger populations and provide predictions that are highly accurate enough with minimum error. The model’s predictions can be looked upon as the basis for improvement of measures to study various medical  factors that could help  in preventing a Heart Disease. Similar models can be built to study other prone populations and help in serving the society better with analytics and various classification techniques.
+
+\newpage
+
+## 13. **References:**
+
+[1] Moonesinghe R, Yang Q, Zhang Z, Khoury MJ. Prevalence and cardiovascular health impact of family history of premature Heart Disease in the United States: Analysis of the National Health and Nutrition Examination Survey, 2007-2014
+
+[2] Benjamin, E. J., Muntner, P., Alonso, A., Bittencourt, M. S., Callaway, C. W., Carson, A. P., Virani, S. S. (2019). Heart disease and stroke statistics-2019 update: A report from the American Heart Association.
+
+[3] Fang J, Luncheon C, Ayala C, Odom E, Loustalot F. Awareness of heart attack symptoms and response among adults—United States, 2008, 2014, and 2017. MMWR. 2019;68(5):101–6.
+
+[4] AI can better predict risk of heart attack, cardiac death, study published in Journal of Cardiovascular Research, https://health.economictimes.indiatimes.com/news/diagnostics/ai-can-better-predict-risk-of-heart-attack-cardiac-death-study/72899878
+
+[5] Singh P, Singh S, Pandi-Jain GS. “Effective heart disease prediction system using data mining techniques”.in International Journal of Nanomedicine, 13(T-NANO 2014 Abstracts):121-124, 2018
