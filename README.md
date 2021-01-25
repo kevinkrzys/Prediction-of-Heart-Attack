@@ -5,7 +5,7 @@
 ## Survey
 
 ### We surveyed 84 people to find out what they thought were the major contributors to Heart Attack and here is what they said:
-![Survey Result 1](Survey Results 2.png)
+![Survey Result 1](https://github.com/kevinkrzys/Prediction-of-Heart-Attack/blob/master/Survey%20Results%202.png)
 
 ### 72.6% said Cholesterol whereas 48.8% said Age
 
